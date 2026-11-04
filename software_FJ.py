@@ -126,6 +126,7 @@ class GestorLogs:
         return linea_log
 
     def info(self, origen: str, mensaje: str): return self.registrar_evento("INFO", origen, mensaje)
+        
     def warning(self, origen: str, mensaje: str): return self.registrar_evento("WARNING", origen, mensaje)
     def error(self, origen: str, mensaje: str, exc=None): return self.registrar_evento("ERROR", origen, mensaje, exc)
     def critical(self, origen: str, mensaje: str, exc=None): return self.registrar_evento("CRITICAL", origen, mensaje, exc)
