@@ -1,133 +1,140 @@
 """
-====================================================================================================
-PROYECTO: SISTEMA INTEGRAL DE GESTIÓN DE CLIENTES, SERVICIOS Y RESERVAS - SOFTWARE FJ
-FASE 4: CALIDAD, ESTABILIDAD Y MANEJO DE ERRORES (SIN BASE DE DATOS)
-----------------------------------------------------------------------------------------------------
-PARTE 1 - ESTUDIANTE 1: MÓDULO BASE, JERARQUÍA DE EXCEPCIONES Y GESTOR DE LOGS
-====================================================================================================
+PROYECTO: SISTEMA INTEGRAL DE GESTIÓN DE CLIENTES, SERVICIOS Y RESERVAS
+SOFTWARE FJ - FASE 4
+Versión integrada en un solo archivo, sin base de datos.
+Ejecutar con: python software_fj.py
 """
+
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
+import re
 import uuid
 import traceback
 
+
+# ============================================================
+# PARTE 1. EXCEPCIONES, ENTIDAD BASE Y GESTOR DE LOGS
+# ============================================================
+
 class ErrorSoftwareFJ(Exception):
-    """Excepción raíz para el dominio Software FJ."""
-    def __init__(self, mensaje: str, codigo_error: str = "ERR-GEN-000"):
+    def __init__(self, mensaje, codigo_error="ERR-GEN-000"):
         super().__init__(mensaje)
         self.mensaje = mensaje
         self.codigo_error = codigo_error
-        self.timestamp = datetime.now().isoformat()
+        self.timestamp = datetime.now().isoformat(timespec="seconds")
 
-    def __str__(self) -> str:
-        return f"[{self.codigo_error}] {self.mensaje} (Ocurrido en: {self.timestamp})"
+    def __str__(self):
+        return f"[{self.codigo_error}] {self.mensaje} (Ocurrido: {self.timestamp})"
+
 
 class ErrorClienteInvalido(ErrorSoftwareFJ):
-    """Lanzada cuando los datos del cliente violan reglas de validación."""
-    def __init__(self, mensaje: str, campo_afectado: str = "Desconocido"):
-        super().__init__(mensaje, codigo_error="ERR-CLI-101")
+    def __init__(self, mensaje, campo_afectado="Desconocido"):
+        super().__init__(mensaje, "ERR-CLI-101")
         self.campo_afectado = campo_afectado
 
+
 class ErrorServicioNoDisponible(ErrorSoftwareFJ):
-    """Lanzada ante servicios inactivos o no encontrados."""
-    def __init__(self, mensaje: str, servicio_id: str = "N/A"):
-        super().__init__(mensaje, codigo_error="ERR-SRV-201")
+    def __init__(self, mensaje, servicio_id="N/A"):
+        super().__init__(mensaje, "ERR-SRV-201")
         self.servicio_id = servicio_id
 
+
 class ErrorCapacidadExcedida(ErrorSoftwareFJ):
-    """Lanzada cuando la solicitud excede el aforo permitido."""
-    def __init__(self, mensaje: str, aforo_maximo: int, aforo_solicitado: int):
-        super().__init__(mensaje, codigo_error="ERR-CAP-202")
+    def __init__(self, mensaje, aforo_maximo, aforo_solicitado):
+        super().__init__(mensaje, "ERR-CAP-202")
         self.aforo_maximo = aforo_maximo
         self.aforo_solicitado = aforo_solicitado
 
+
 class ErrorFondosInsuficientes(ErrorSoftwareFJ):
-    """Lanzada cuando el saldo del cliente no cubre el costo."""
-    def __init__(self, mensaje: str, saldo_actual: float, monto_requerido: float):
-        super().__init__(mensaje, codigo_error="ERR-SAL-301")
+    def __init__(self, mensaje, saldo_actual, monto_requerido):
+        super().__init__(mensaje, "ERR-SAL-301")
         self.saldo_actual = saldo_actual
         self.monto_requerido = monto_requerido
 
+
 class ErrorFechaInvalida(ErrorSoftwareFJ):
-    """Lanzada ante fechas en el pasado o con sintaxis errónea."""
-    def __init__(self, mensaje: str, fecha_provista: str):
-        super().__init__(mensaje, codigo_error="ERR-FEC-401")
+    def __init__(self, mensaje, fecha_provista):
+        super().__init__(mensaje, "ERR-FEC-401")
         self.fecha_provista = fecha_provista
 
+
 class ErrorReservaInvalida(ErrorSoftwareFJ):
-    """Lanzada ante transiciones ilícitas o estados incompatibles."""
-    def __init__(self, mensaje: str, estado_actual: str = "N/A"):
-        super().__init__(mensaje, codigo_error="ERR-RES-501")
+    def __init__(self, mensaje, estado_actual="N/A"):
+        super().__init__(mensaje, "ERR-RES-501")
         self.estado_actual = estado_actual
 
+
 class EntidadBase(ABC):
-    """Clase abstracta con identificador único y auditoría."""
-    def __init__(self, id_entidad: str = None):
-        self.__id = id_entidad if id_entidad else str(uuid.uuid4())[:8].upper()
+    def __init__(self, id_entidad=None):
+        self.__id = id_entidad or str(uuid.uuid4())[:8].upper()
         self.__fecha_creacion = datetime.now()
         self.__activo = True
 
     @property
-    def id(self) -> str:
+    def id(self):
         return self.__id
 
     @property
-    def fecha_creacion(self) -> datetime:
+    def fecha_creacion(self):
         return self.__fecha_creacion
 
     @property
-    def activo(self) -> bool:
+    def activo(self):
         return self.__activo
 
     @activo.setter
-    def activo(self, nuevo_estado: bool) -> None:
+    def activo(self, nuevo_estado):
         if not isinstance(nuevo_estado, bool):
-            raise ErrorSoftwareFJ("El estado activo debe ser un valor booleano.", "ERR-ENT-001")
+            raise ErrorSoftwareFJ("El estado activo debe ser booleano.", "ERR-ENT-001")
         self.__activo = nuevo_estado
 
     @abstractmethod
-    def validar_consistencia(self) -> bool:
+    def validar_consistencia(self):
         pass
 
+
 class GestorLogs:
-    """Manejador centralizado con bloque try/finally para archivos planos."""
-    def __init__(self, nombre_archivo: str = "sistema_software_fj.log"):
-        self.__nombre_archivo = nombre_archivo
-        self.__buffer_logs = []
+    def __init__(self, nombre_archivo="sistema_software_fj.log"):
+        self.nombre_archivo = nombre_archivo
+        self.buffer_logs = []
 
-    def registrar_evento(self, nivel: str, origen: str, mensaje: str, excepcion: Exception = None) -> str:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        linea_log = f"[{timestamp}] [{nivel.upper():<7}] [{origen:<22}] {mensaje}"
-        if excepcion is not None:
-            linea_log += f" | EXCEPCIÓN: {type(excepcion).__name__} -> {str(excepcion)}"
+    def registrar_evento(self, nivel, origen, mensaje, excepcion=None):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        linea = f"[{timestamp}] [{nivel.upper():<8}] [{origen}] {mensaje}"
+        if excepcion:
+            linea += f" | EXCEPCIÓN: {type(excepcion).__name__}: {excepcion}"
 
-        archivo_descriptor = None
+        archivo = None
         try:
-            archivo_descriptor = open(self.__nombre_archivo, mode="a", encoding="utf-8")
-            archivo_descriptor.write(linea_log + "\n")
-            if nivel.upper() in ["ERROR", "CRITICAL"] and excepcion is not None:
+            archivo = open(self.nombre_archivo, "a", encoding="utf-8")
+            archivo.write(linea + "\n")
+            if excepcion and nivel.upper() in ("ERROR", "CRITICAL"):
                 traza = traceback.format_exc()
                 if "NoneType: None" not in traza:
-                    archivo_descriptor.write("--- TRAZA DETALLADA ---\n" + traza + "-----------------------\n")
-        except IOError as io_err:
-            print(f"[ALERTA CRÍTICA GESTOR LOGS] Imposible escribir en archivo: {io_err}")
+                    archivo.write(traza + "\n")
+        except OSError as error:
+            print(f"ALERTA: no se pudo escribir el log: {error}")
         finally:
-            if archivo_descriptor is not None and not archivo_descriptor.closed:
-                archivo_descriptor.close()
+            if archivo is not None:
+                archivo.close()
 
-        self.__buffer_logs.append({
+        self.buffer_logs.append({
             "timestamp": timestamp,
             "nivel": nivel.upper(),
             "origen": origen,
-            "mensaje": mensaje,
-            "excepcion": type(excepcion).__name__ if excepcion else None,
-            "linea_completa": linea_log
+            "mensaje": mensaje
         })
-        return linea_log
+        return linea
 
-    def info(self, origen: str, mensaje: str): return self.registrar_evento("INFO", origen, mensaje)
-        
-    def warning(self, origen: str, mensaje: str): return self.registrar_evento("WARNING", origen, mensaje)
-    def error(self, origen: str, mensaje: str, exc=None): return self.registrar_evento("ERROR", origen, mensaje, exc)
-    def critical(self, origen: str, mensaje: str, exc=None): return self.registrar_evento("CRITICAL", origen, mensaje, exc)
-    def obtener_historial_logs(self): return list(self.__buffer_logs)
+    def info(self, origen, mensaje):
+        return self.registrar_evento("INFO", origen, mensaje)
+
+    def warning(self, origen, mensaje):
+        return self.registrar_evento("WARNING", origen, mensaje)
+
+    def error(self, origen, mensaje, exc=None):
+        return self.registrar_evento("ERROR", origen, mensaje, exc)
+
+    def obtener_historial_logs(self):
+        return list(self.buffer_logs)
