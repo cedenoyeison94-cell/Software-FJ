@@ -138,3 +138,74 @@ class GestorLogs:
 
     def obtener_historial_logs(self):
         return list(self.buffer_logs)
+
+# ============================================================
+# PARTE 2. CLASE CLIENTE (Encapsulación y Validaciones)
+# ============================================================
+
+class Cliente(EntidadBase):
+    def __init__(self, nombre, correo, telefono, saldo=0.0, id_entidad=None):
+        super().__init__(id_entidad)
+        self.nombre = nombre
+        self.correo = correo
+        self.telefono = telefono
+        self.saldo = saldo
+
+    @property
+    def nombre(self):
+        return self.__nombre
+
+    @nombre.setter
+    def nombre(self, valor):
+        if not valor or not valor.strip():
+            raise ErrorClienteInvalido("El nombre del cliente no puede estar vacío.", "nombre")
+        self.__nombre = valor.strip()
+
+    @property
+    def correo(self):
+        return self.__correo
+
+    @correo.setter
+    def correo(self, valor):
+        patron = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+        if not re.match(patron, valor):
+            raise ErrorClienteInvalido(f"Formato de correo electrónico inválido: {valor}", "correo")
+        self.__correo = valor.strip().lower()
+
+    @property
+    def telefono(self):
+        return self.__telefono
+
+    @telefono.setter
+    def telefono(self, valor):
+        if not valor.isdigit() or len(valor) < 7:
+            raise ErrorClienteInvalido(f"Número de teléfono inválido: {valor}", "telefono")
+        self.__telefono = valor.strip()
+
+    @property
+    def saldo(self):
+        return self.__saldo
+
+    @saldo.setter
+    def saldo(self, valor):
+        if valor < 0:
+            raise ErrorClienteInvalido("El saldo inicial no puede ser negativo.", "saldo")
+        self.__saldo = float(valor)
+
+    def abonar_saldo(self, monto):
+        if monto <= 0:
+            raise ErrorClienteInvalido("El monto a abonar debe ser mayor que cero.")
+        self.__saldo += float(monto)
+
+    def descontar_saldo(self, monto):
+        if monto > self.__saldo:
+            raise ErrorFondosInsuficientes("Saldo insuficiente para completar la operación.", self.__saldo, monto)
+        self.__saldo -= float(monto)
+
+    def validar_consistencia(self):
+        if not self.nombre or "@" not in self.correo:
+            return False
+        return True
+
+    def __str__(self):
+        return f"Cliente [{self.id}] - Nombre: {self.nombre} | Correo: {self.correo} | Saldo: ${self.saldo:.2f}"
