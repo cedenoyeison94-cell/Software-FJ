@@ -205,7 +205,95 @@ class Cliente(EntidadBase):
     def validar_consistencia(self):
         if not self.nombre or "@" not in self.correo:
             return False
+        
         return True
 
     def __str__(self):
         return f"Cliente [{self.id}] - Nombre: {self.nombre} | Correo: {self.correo} | Saldo: ${self.saldo:.2f}"
+        
+# ============================================================
+# PARTE 3. CLASE BASE SERVICIO Y SERVICIOS ESPECIALIZADOS
+# ============================================================
+
+class Servicio(EntidadBase):
+    def __init__(self, nombre: str, tarifa_base: float, id_entidad=None):
+        super().__init__(id_entidad)
+        self.nombre = nombre
+        self.tarifa_base = tarifa_base
+
+    @property
+    def tarifa_base(self):
+        return self.__tarifa_base
+
+    @tarifa_base.setter
+    def tarifa_base(self, valor):
+        if valor < 0:
+            raise ErrorServicioNoDisponible("La tarifa base no puede ser negativa.")
+        self.__tarifa_base = float(valor)
+
+    @abstractmethod
+    def calcular_costo(self, *args, **kwargs) -> float:
+        """Método abstracto que implementa polimorfismo en las clases hijas."""
+        pass
+
+    @abstractmethod
+    def obtener_descripcion(self) -> str:
+        """Método abstracto para detallar las características del servicio."""
+        pass
+
+    def validar_consistencia(self):
+        return bool(self.nombre and self.tarifa_base >= 0)
+
+
+# Servicio especializado 1: Reserva de Salas
+class ReservaSalas(Servicio):
+    def __init__(self, nombre: str, tarifa_base: float, capacidad: int, id_entidad=None):
+        super().__init__(nombre, tarifa_base, id_entidad)
+        self.capacidad = capacidad
+
+    def calcular_costo(self, horas: int, incluye_multimedia: bool = False) -> float:
+        if horas <= 0:
+            raise ErrorServicioNoDisponible("El número de horas debe ser mayor a cero.")
+        costo = self.tarifa_base * horas
+        if incluye_multimedia:
+            costo += 50000  # Costo adicional por equipos multimedia
+        return costo
+
+    def obtener_descripcion(self) -> str:
+        return f"Reserva de Sala: {self.nombre} (Capacidad máxima: {self.capacidad} personas)"
+
+
+# Servicio especializado 2: Alquiler de Equipos
+class AlquilerEquipos(Servicio):
+    def __init__(self, nombre: str, tarifa_base: float, serial: str, id_entidad=None):
+        super().__init__(nombre, tarifa_base, id_entidad)
+        self.serial = serial
+
+    def calcular_costo(self, dias: int) -> float:
+        if dias <= 0:
+            raise ErrorServicioNoDisponible("El número de días de alquiler debe ser mayor a cero.")
+        costo = self.tarifa_base * dias
+        if dias > 5:
+            costo *= 0.90  # Descuento del 10% por alquileres mayores a 5 días
+        return costo
+
+    def obtener_descripcion(self) -> str:
+        return f"Alquiler de Equipo: {self.nombre} (Serial: {self.serial})"
+
+
+# Servicio especializado 3: Asesorías Especializadas
+class AsesoriaEspecializada(Servicio):
+    def __init__(self, nombre: str, tarifa_base: float, area: str, id_entidad=None):
+        super().__init__(nombre, tarifa_base, id_entidad)
+        self.area = area
+
+    def calcular_costo(self, horas: int, nivel_senior: bool = False) -> float:
+        if horas <= 0:
+            raise ErrorServicioNoDisponible("Las horas de asesoría deben ser mayores a cero.")
+        costo = self.tarifa_base * horas
+        if nivel_senior:
+            costo *= 1.25  # Incremento del 25% por asesor senior
+        return costo
+
+    def obtener_descripcion(self) -> str:
+        return f"Asesoría Especializada en {self.area}: {self.nombre}"
