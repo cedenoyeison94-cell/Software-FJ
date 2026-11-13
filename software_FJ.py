@@ -297,3 +297,50 @@ class AsesoriaEspecializada(Servicio):
 
     def obtener_descripcion(self) -> str:
         return f"Asesoría Especializada en {self.area}: {self.nombre}"
+
+# PARTE 4. CLASE RESERVA (Relaciones y Estados)
+
+class Reserva(EntidadBase):
+    ESTADOS_VALIDOS = ["PENDIENTE", "CONFIRMADA", "CANCELADA", "COMPLETADA"]
+
+    def __init__(self, cliente: Cliente, servicio: Servicio, detalles_servicio: dict, id_entidad=None):
+        super().__init__(id_entidad)
+        self.cliente = cliente
+        self.servicio = servicio
+        self.detalles_servicio = detalles_servicio
+        self.__estado = "PENDIENTE"
+        
+        # Calcular el costo total aplicando polimorfismo según el servicio
+        if isinstance(servicio, ReservaSala):
+            self.costo_total = servicio.calcular_costo(
+                detalles_servicio.get("horas", 1), 
+                detalles_servicio.get("asistentes", 1)
+            )
+        elif isinstance(servicio, AlquilerEquipos):
+            self.costo_total = servicio.calcular_costo(
+                detalles_servicio.get("dias", 1), 
+                detalles_servicio.get("cantidad", 1)
+            )
+        elif isinstance(servicio, AsesoriaEspecializada):
+            self.costo_total = servicio.calcular_costo(
+                detalles_servicio.get("horas", 1)
+            )
+        else:
+            self.costo_total = servicio.precio_base
+
+    @property
+    def estado(self):
+        return self.__estado
+
+    def cambiar_estado(self, nuevo_estado: str):
+        nuevo_estado = nuevo_estado.upper()
+        if nuevo_estado not in self.ESTADOS_VALIDOS:
+            raise ErrorReservaInvalida(f"Estado de reserva no válido: {nuevo_estado}", self.__estado)
+        self.__estado = nuevo_estado
+
+    def validar_consistencia(self):
+        return bool(self.cliente and self.servicio and self.costo_total >= 0)
+
+    def __str__(self):
+        return (f"Reserva [{self.id}] | Cliente: {self.cliente.nombre} | "
+                f"Servicio: {self.servicio.nombre} | Total: ${self.costo_total:.2f} | Estado: {self.__estado}")
