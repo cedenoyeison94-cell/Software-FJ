@@ -1,7 +1,7 @@
-"""
 PROYECTO: SISTEMA INTEGRAL DE GESTIÓN DE CLIENTES, SERVICIOS Y RESERVAS
 SOFTWARE FJ - FASE 4
-
+Versión integrada en un solo archivo, sin base de datos.
+Ejecutar con: python software_fj.py
 """
 
 from abc import ABC, abstractmethod
